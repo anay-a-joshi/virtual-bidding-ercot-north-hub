@@ -1,0 +1,111 @@
+
+******************** TEST GROUP 1: Hour-Ending -> UTC Key On DST Days ********************
+  [PASS] Fall-back HE2 first copy -> 06:00 UTC
+  [PASS] Fall-back HE2 repeated copy -> 07:00 UTC
+  [PASS] Fall-back HE3 -> 08:00 UTC
+  [PASS] Spring-forward HE2 -> 07:00 UTC (CST)
+  [PASS] Spring-forward HE3 -> NaT (impossible hour)
+  [PASS] Spring-forward HE4 -> 08:00 UTC (CDT)
+  [PASS] HE24 of a summer day (23:00 CDT) -> 04:00 UTC next day
+
+******************** TEST GROUP 2: Lab 2 Check 1 And Check 2 (Prices) ********************
+  [PASS] DA has 35,064 hours in 2022-2025
+  [PASS] DA day sizes {24: 1453, 23: 4, 25: 4}
+  [PASS] DA keys complete and unique
+  [PASS] DA 2023-11-05 HE2 first copy (CDT): computed = 21.680000, expected = 21.680000
+  [PASS] DA 2023-11-05 HE2 repeated copy (CST): computed = 24.980000, expected = 24.980000
+  [PASS] RT has 35,064 hours, each with 4 intervals
+  [PASS] RT keys == DA keys
+  [PASS] RT 2023-11-05 HE2 first copy (CDT): computed = 22.012500, expected = 22.012500
+  [PASS] RT 2023-11-05 HE2 repeated copy (CST): computed = 23.877500, expected = 23.877500
+
+******************** TEST GROUP 3: Lab 2 Check 3 (Forecasts) ********************
+  [PASS] No forecast file posted after 9:00 AM on D-1
+  [PASS] Load rows = 27,048
+  [PASS] Wind rows = 27,048
+  [PASS] Solar rows = 27,045 (3 impossible HE03 rows dropped)
+  [PASS] No ACTUAL / COP_HSL column enters the dataset
+
+******************** TEST GROUP 4: Lab 2 Check 4 (One Table) ********************
+  [PASS] Shape is (27048, 14)
+  [PASS] No missing values
+  [PASS] UTC key strictly increasing
+  [PASS] 1,127 delivery days from 2022-12-01 to 2025-12-31
+  [PASS] max |spread - (DA - RT)|: computed = 0.000000, expected = 0.000000
+  [PASS] y == 1{spread > 0}
+  [PASS] Exactly 3 filled values, all solar, all 0 MW
+  [PASS] CSV round trip keeps the 3 short and 3 long DST days
+  [PASS] Saved CSV equals the in-memory table (prices)
+
+******************** TEST GROUP 5: Lab 2 Task 5 (Look-Ahead Guard) ********************
+  [PASS] Guard CATCHES shift(24) and unshifted rolling(24*7)
+  [PASS] Guard PASSES the D-2 same-hour merge lag
+  [PASS] spread_lag2 on 2024-07-03 20:00 UTC == spread on 2024-07-01 20:00 UTC: computed = 3.847500, expected = 3.847500
+
+******************** TEST GROUP 6: Edge Cases And Hardening ********************
+  [PASS] Guard CATCHES a same-hour D-1 spread lag
+  [PASS] Guard CATCHES a sign-only D-1 lag (positive AND negative poison)
+  [PASS] Guard PASSES calendar and forecast columns
+  [PASS] Every extended poison day exists in the data
+  [PASS] Missing HE24 filled from same-day HE23 only (not next-day HE01): computed = 40000.000000, expected = 40000.000000
+  [PASS] Missing night solar hour between two zeros filled with 0: computed = 0.000000, expected = 0.000000
+  [PASS] Fill with no same-day neighbour raises an error
+  [PASS] Dataset columns are exactly the 14 agreed columns
+  [PASS] Extreme prices are kept (max |spread| > $3,900, not clipped)
+  [PASS] Negative RT prices are kept (> 500 hours in 2023-2025)
+
+******************** TEST GROUP 7: Feature Factory (Hand-Computed Values) ********************
+  [PASS] NERC: Christmas 2022 (Sunday) observed Monday 2022-12-26
+  [PASS] NERC: New Year 2023 (Sunday) observed Monday 2023-01-02, not 2023-01-01
+  [PASS] NERC: Thanksgiving 2024-11-28, Memorial Day 2025-05-26, Labor Day 2024-09-02
+  [PASS] NERC: 6 holidays per year
+  [PASS] Every feature has a description
+  [PASS] spread_lag2 == spread 2024-07-01 HE16: computed = 3.847500, expected = 3.847500
+  [PASS] spread_lag7 == spread 2024-06-26 HE16: computed = 29.555000, expected = 29.555000
+  [PASS] spread_mean7_d2 == mean HE16 spread 06-25..07-01: computed = 9.582857, expected = 9.582857
+  [PASS] spread_std28_d2 == std HE16 spread 06-04..07-01: computed = 16.686912, expected = 16.686912
+  [PASS] spread_fracpos28_d2 == share S>0 06-04..07-01: computed = 0.678571, expected = 0.678571
+  [PASS] spread_daymean_lag2 == mean spread of 2024-07-01: computed = -0.434792, expected = -0.434792
+  [PASS] net_load = load - wind - solar: computed = 47650.168900, expected = 47650.168900
+  [PASS] load_fcst_revision_mw == file D minus file D-1 (raw): computed = 975.810500, expected = 975.810500
+  [PASS] Both copies of the fall-back HE2 get the same D-2 lag
+  [PASS] Model rows: 8,760 train / 8,784 validation / 8,760 test
+  [PASS] No missing feature value in 2023-2025
+  [PASS] No outcome column is used as a feature
+  [PASS] Whole feature builder passes the look-ahead test (Lab days; main.py runs all 20)
+
+******************** TEST GROUP 8: Backtest Engine (Hand-Computed) ********************
+  [PASS] INC, v=2, S=5, c=1 -> 2*(5-1) = 8: computed = 8.000000, expected = 8.000000
+  [PASS] DEC, v=1, S=5, c=1 -> 1*(-5-1) = -6: computed = -6.000000, expected = -6.000000
+  [PASS] No trade pays no cost -> 0: computed = 0.000000, expected = 0.000000
+  [PASS] Max drawdown of +1, -3, +2, -1 is 3: computed = 3.000000, expected = 3.000000
+  [PASS] Max drawdown counts a loss from day one (-2 -> 2): computed = 2.000000, expected = 2.000000
+  [PASS] Sharpe = mean/std * sqrt(365): computed = 38.209946, expected = 38.209946
+  [PASS] An action of 2 is rejected
+  [PASS] Tiny book total profit = -4: computed = -4.000000, expected = -4.000000
+  [PASS] Tiny book MWh traded = 4 (no-trade hour excluded): computed = 4.000000, expected = 4.000000
+  [PASS] Tiny book win rate = 1/3: computed = 0.333333, expected = 0.333333
+  [PASS] Tiny book annualized return = (-4/2)*365/100: computed = -7.300000, expected = -7.300000
+  [PASS] Tiny book max drawdown = 4 (day1 -1, day2 -3): computed = 4.000000, expected = 4.000000
+
+******************** TEST GROUP 9: Part 2 Trading Rules ********************
+  [PASS] tau rule: +1 if mu > c+tau, -1 if mu < -(c+tau), else 0
+  [PASS] Sizes scaled to the same total volume (8 MWh): computed = 8.000000, expected = 8.000000
+  [PASS] Negative raw sizes become 0, ratios kept
+  [PASS] (2p-1)|S| edge: p=0.75, |S|=10, c=1 -> 4: computed = 4.000000, expected = 4.000000
+  [PASS] Capital base is positive: computed = 1.000000, expected = 1.000000
+
+******************** TEST GROUP 10: Part 3 Allocators (Exact Checks) ********************
+  [PASS] Equal weights on 24 hours -> 1 MWh each
+  [PASS] Equal weights on a 23-hour day -> 24/23 each
+  [PASS] Skewed weights: sum = 24, every hour <= 4
+  [PASS] Only 3 hours with weight -> 4 each, budget not spent
+  [PASS] Unit weights: greedy == dynamic programme on 30 random days
+  [PASS] Collateral DP == brute force (3 hours, cap 2, 4 MWh, $9): computed = 12.000000, expected = 12.000000
+  [PASS] Ratio greedy is feasible and never beats the DP
+  [PASS] Projection lands in {0 <= v <= 4, sum v <= 24}
+  [PASS] Mean-variance: our solver == cvxpy objective: computed = 88.522060, expected = 88.522060
+  [PASS] CVaR with no binding limit spends the knapsack amount (24 MWh): computed = 24.000000, expected = 24.000000
+  [PASS] A tighter CVaR limit trades less
+
+Unit Tests Passed: 89, Failed: 0

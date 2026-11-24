@@ -1,0 +1,43 @@
+feature,group,description,uses_prices,lookahead_test
+hour_ending,calendar,"Hour ending (1-24, Central)",False,PASS
+day_of_week,calendar,Day of week (0 = Monday),False,PASS
+month,calendar,Month (1-12),False,PASS
+is_weekend,calendar,Saturday or Sunday,False,PASS
+is_nerc_holiday,calendar,NERC holiday (Sunday holidays observed Monday),False,PASS
+is_offpeak_day,calendar,Weekend or NERC holiday,False,PASS
+is_onpeak_hour,calendar,ERCOT on-peak: HE07-HE22 on a non-off-peak day,False,PASS
+hour_sin,calendar,sin(2 pi hour / 24),False,PASS
+hour_cos,calendar,cos(2 pi hour / 24),False,PASS
+season_sin,calendar,sin(2 pi day-of-year / 365.25),False,PASS
+season_cos,calendar,cos(2 pi day-of-year / 365.25),False,PASS
+da_price_lag2,price_lags,"DA price, same hour, D-2",True,PASS
+rt_price_lag2,price_lags,"RT price, same hour, D-2",True,PASS
+spread_lag2,price_lags,"Spread, same hour, D-2",True,PASS
+da_price_lag7,price_lags,"DA price, same hour, D-7",True,PASS
+rt_price_lag7,price_lags,"RT price, same hour, D-7",True,PASS
+spread_lag7,price_lags,"Spread, same hour, D-7",True,PASS
+spread_daymean_lag2,price_lags,Mean spread over all hours of D-2,True,PASS
+da_daymean_lag2,price_lags,Mean DA price over all hours of D-2,True,PASS
+rt_daymax_lag2,price_lags,Maximum RT price on D-2,True,PASS
+spread_mean7_d2,rolling_stats,"Same-hour spread mean, 7 days ending D-2",True,PASS
+spread_mean28_d2,rolling_stats,"Same-hour spread mean, 28 days ending D-2",True,PASS
+spread_std28_d2,rolling_stats,"Same-hour spread std, 28 days ending D-2",True,PASS
+spread_fracpos28_d2,rolling_stats,"Same-hour share of S > 0, 28 days ending D-2",True,PASS
+spread_absmean28_d2,rolling_stats,"Same-hour mean |S|, 28 days ending D-2",True,PASS
+spread_median28_d2,rolling_stats,"Same-hour spread median, 28 days ending D-2",True,PASS
+da_mean7_d2,rolling_stats,"Same-hour DA price mean, 7 days ending D-2",True,PASS
+load_fcst_system_mw,load_forecast,"ERCOT system load forecast (D,h)",False,PASS
+load_fcst_north_mw,load_forecast,"North weather-zone load forecast (D,h)",False,PASS
+wind_fcst_mw,renewable_forecast,"System wind forecast STWPF (D,h)",False,PASS
+solar_fcst_mw,renewable_forecast,"System solar forecast STPPF (D,h)",False,PASS
+net_load_mw,derived_net_load,Net load = load - wind - solar,False,PASS
+net_load_ramp_mw,derived_net_load,Net load minus previous hour,False,PASS
+net_load_ramp3_mw,derived_net_load,Net load minus 3 hours earlier,False,PASS
+net_load_from_daily_peak_mw,derived_net_load,Net load minus day-D peak net load,False,PASS
+net_load_anomaly7_mw,derived_net_load,Net load minus same-hour mean of forecasts for D-7..D-1,False,PASS
+wind_share,derived_net_load,Wind forecast / load forecast,False,PASS
+solar_share,derived_net_load,Solar forecast / load forecast,False,PASS
+load_fcst_revision_mw,forecast_revisions,Load forecast (file D) minus load forecast (file D-1),False,PASS
+wind_fcst_revision_mw,forecast_revisions,Wind forecast (file D) minus wind forecast (file D-1),False,PASS
+solar_fcst_revision_mw,forecast_revisions,Solar forecast (file D) minus solar forecast (file D-1),False,PASS
+net_load_revision_mw,forecast_revisions,Net-load forecast revision between the two files,False,PASS

@@ -1,0 +1,8 @@
+model,family,validation_profit_c0
+muB__ridge,linear,10934.1475
+muB__lasso,linear,10291.157499999998
+muB__huber_linear,linear,10458.252499999999
+muB__lad_linear,linear,10407.2925
+muB__lgbm_squared,tree,6498.207499999999
+muB__lgbm_absolute,tree,12271.617499999997
+muB__lgbm_huber,tree,13537.377499999999

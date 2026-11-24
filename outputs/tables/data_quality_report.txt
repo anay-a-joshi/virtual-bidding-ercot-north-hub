@@ -1,0 +1,88 @@
+
+******************** TASK 1: Day-Ahead Prices (NP4-180-ER) And One Key Per Hour ********************
+Step-Number 1: HB_NORTH day-ahead hours read (2022-2025): 35,064
+Step-Number 2: Days by number of hours: {23: 4, 24: 1453, 25: 4}  (expect 23 and 25 only on DST days)
+Step-Number 3: Missing UTC keys: 0 | Duplicate UTC keys: 0
+Step-Number 4: Non-24-hour days: 2022-03-13 (23h), 2022-11-06 (25h), 2023-03-12 (23h), 2023-11-05 (25h), 2024-03-10 (23h), 2024-11-03 (25h), 2025-03-09 (23h), 2025-11-02 (25h)
+Step-Number 5: Blank day-ahead prices: 0
+  [PASS] Check 1 (one key per hour) on day-ahead prices
+
+******************** TASK 2: Real-Time Prices (NP6-785-ER), 15 Minutes -> 1 Hour ********************
+Step-Number 1: Hourly RT rows: 35,064
+Step-Number 2: Hours by number of 15-min intervals: {4: 35064}  (expect only 4)
+Step-Number 3: RT hour keys identical to DA hour keys: True
+Step-Number 4: Blank real-time prices: 0
+  [PASS] Check 2 (every RT hour has four 15-minute intervals)
+
+******************** TASK 3a: Forecast Vintage (Posted Before 9:00 AM On D-1) ********************
+                files  first_day   last_day typical_post_time  min_minutes_before  max_minutes_before  posted_late
+report                                                                                                            
+load_forecast    1127 2022-12-01 2025-12-31             08:30           11.733333           30.000000            0
+solar_forecast   1127 2022-12-01 2025-12-31             08:55            4.100000            4.900000            0
+wind_forecast    1127 2022-12-01 2025-12-31             08:55            4.116667            4.883333            0
+  [PASS] Check 3a (every one of the 3,381 forecast files was posted before 9:00 AM on D-1)
+
+******************** TASK 3b: Forecasts Known At Decision Time (Day D Rows, Forecast Columns Only) ********************
+  load_forecast   files=1,127  kept rows (day D)=27,048  discarded rows (other days)=189,336
+    forecast columns used : ['SystemTotal', 'North']
+    columns NOT used      : ['Coast', 'East', 'FarWest', 'NorthCentral', 'SouthCentral', 'Southern', 'West']
+    impossible local hours dropped: none
+  wind_forecast   files=1,127  kept rows (day D)=27,048  discarded rows (other days)=216,354
+    forecast columns used : ['STWPF_SYSTEM_WIDE']
+    columns NOT used      : ['ACTUAL_SYSTEM_WIDE', 'COP_HSL_SYSTEM_WIDE', 'WGRPP_SYSTEM_WIDE', 'ACTUAL_LZ_SOUTH_HOUSTON', 'COP_HSL_LZ_SOUTH_HOUSTON', 'STWPF_LZ_SOUTH_HOUSTON', 'WGRPP_LZ_SOUTH_HOUSTON', 'ACTUAL_LZ_WEST', 'COP_HSL_LZ_WEST', 'STWPF_LZ_WEST', 'WGRPP_LZ_WEST', 'ACTUAL_LZ_NORTH', 'COP_HSL_LZ_NORTH', 'STWPF_LZ_NORTH', 'WGRPP_LZ_NORTH']
+    impossible local hours dropped: none
+  solar_forecast  files=1,127  kept rows (day D)=27,045  discarded rows (other days)=216,354
+    forecast columns used : ['STPPF_SYSTEM_WIDE']
+    columns NOT used      : ['ACTUAL_SYSTEM_WIDE', 'COP_HSL_SYSTEM_WIDE', 'PVGRPP_SYSTEM_WIDE']
+    impossible local hours dropped: ['2023-03-12 HE03', '2024-03-10 HE03', '2025-03-09 HE03']
+  Note: ACTUAL_* are realized generation, observed after the fact (blank for day D, filled for
+  the past 48 h); COP_HSL comes from the resources' current operating plans and *GRPP is a
+  probability-of-exceedance production level. None of them is the requested forecast, so none
+  of them enters the dataset; the realized ACTUAL values would be look-ahead by construction.
+  [PASS] Check 3b (only SystemTotal, North, STWPF_SYSTEM_WIDE, STPPF_SYSTEM_WIDE kept)
+
+******************** TASK 4: One Table (Merge On interval_start_utc) And Completeness ********************
+Step-Number 1: Delivery hours 2022-12-01 .. 2025-12-31: 27,048
+Step-Number 2: Missing values per column after the merge: {'solar_fcst_mw': 3}
+Step-Number 3: Every filled value and how it was filled:
+    solar_fcst_mw | 2023-03-12 HE02 (2023-03-12 01:00 CST) -> 0.0 MW | zero (night hour, both neighbouring hours are 0 MW)
+    solar_fcst_mw | 2024-03-10 HE02 (2024-03-10 01:00 CST) -> 0.0 MW | zero (night hour, both neighbouring hours are 0 MW)
+    solar_fcst_mw | 2025-03-09 HE02 (2025-03-09 01:00 CST) -> 0.0 MW | zero (night hour, both neighbouring hours are 0 MW)
+    Why: on spring-forward days the solar report skips HE02 and instead lists an HE03 that
+    cannot exist (02:00-03:00 never happens); load and wind skip HE03 correctly. The impossible
+    row was dropped in Task 3 and the real HE02 (01:00-02:00 CST, night) is filled with 0 MW.
+Step-Number 4: Final shape (27048, 14), missing values left: 0, UTC key strictly increasing: True
+  [PASS] Check 4 (no missing values, every fill reported)
+
+******************** CHECK 5: Extreme And Negative Prices (Reported, NOT Removed) ********************
+      hours  da_min   da_max  rt_min   rt_max  negative_da_hours  negative_rt_hours  spread_abs_over_100  spread_abs_over_500
+year                                                                                                                         
+2022    744    5.13  2543.82  -12.68  3190.62                  0                 34                   28                   16
+2023   8760    1.10  4200.00  -31.63  5229.84                  0                125                  431                  117
+2024   8784   -4.00  2224.74  -31.78  3052.65                  6                189                  119                   21
+2025   8760    0.00   913.72  -32.42  2087.03                  0                224                   70                    5
+Spread quantiles ($/MWh): q0.1=-1,453.26, q1=-91.36, q5=-20.33, q25=-2.71, q50=1.63, q75=6.78, q95=26.77, q99=152.86, q99.9=1,366.27
+Ten largest |spread| hours:
+interval_start_local  hour_ending  da_price  rt_price   spread
+2023-09-06 19:00 CDT           20   1306.35   5229.84 -3923.49
+2023-09-06 16:00 CDT           17    467.10   3893.24 -3426.14
+2023-09-06 15:00 CDT           16    311.35   3536.42 -3225.06
+2023-06-20 19:00 CDT           20   1964.91   5070.93 -3106.02
+2023-08-15 19:00 CDT           20   3310.39    322.49  2987.90
+2022-12-23 06:00 CST            7    318.21   3114.10 -2795.89
+2023-08-25 16:00 CDT           17   3711.66    926.85  2784.81
+2022-12-23 07:00 CST            8    451.52   3190.62 -2739.10
+2023-08-26 18:00 CDT           19   3177.70    488.99  2688.71
+2023-08-26 19:00 CDT           20   3165.43    570.32  2595.11
+  Decision: these are real market events (scarcity, Winter Storm Elliott, high renewable
+  output), so they stay in the dataset untouched. Robustness is handled inside the models
+  (Huber / absolute-error losses, rank-based features) and is stated there.
+  [PASS] Check 5 (extreme and negative prices reported, none deleted or clipped)
+
+******************** CHECK 6: The Look-Ahead Test Catches The Two Classic Mistakes ********************
+  shift(24) and unshifted rolling(24*7) pass the test? False
+  caught: Oops! look-ahead on 2023-07-15 in ['spread_shift24', 'spread_roll7d']
+  [PASS] The guard works; every project feature is run through it in feature_factory.py
+
+Saved dataset : outputs/data/ercot_hb_north_hourly.csv
+Saved report  : outputs/tables/data_quality_report.txt

@@ -1,0 +1,591 @@
+
+******************** TASK 1: Day-Ahead Prices (NP4-180-ER) And One Key Per Hour ********************
+  using cache dam_hourly.pkl (run with --rebuild to re-read the raw workbooks)
+Step-Number 1: HB_NORTH day-ahead hours read (2022-2025): 35,064
+Step-Number 2: Days by number of hours: {23: 4, 24: 1453, 25: 4}  (expect 23 and 25 only on DST days)
+Step-Number 3: Missing UTC keys: 0 | Duplicate UTC keys: 0
+Step-Number 4: Non-24-hour days: 2022-03-13 (23h), 2022-11-06 (25h), 2023-03-12 (23h), 2023-11-05 (25h), 2024-03-10 (23h), 2024-11-03 (25h), 2025-03-09 (23h), 2025-11-02 (25h)
+Step-Number 5: Blank day-ahead prices: 0
+  [PASS] Check 1 (one key per hour) on day-ahead prices
+
+******************** TASK 2: Real-Time Prices (NP6-785-ER), 15 Minutes -> 1 Hour ********************
+  using cache rtm_hourly.pkl (run with --rebuild to re-read the raw workbooks)
+Step-Number 1: Hourly RT rows: 35,064
+Step-Number 2: Hours by number of 15-min intervals: {4: 35064}  (expect only 4)
+Step-Number 3: RT hour keys identical to DA hour keys: True
+Step-Number 4: Blank real-time prices: 0
+  [PASS] Check 2 (every RT hour has four 15-minute intervals)
+
+******************** TASK 3a: Forecast Vintage (Posted Before 9:00 AM On D-1) ********************
+                files  first_day   last_day typical_post_time  min_minutes_before  max_minutes_before  posted_late
+report                                                                                                            
+load_forecast    1127 2022-12-01 2025-12-31             08:30           11.733333           30.000000            0
+solar_forecast   1127 2022-12-01 2025-12-31             08:55            4.100000            4.900000            0
+wind_forecast    1127 2022-12-01 2025-12-31             08:55            4.116667            4.883333            0
+  [PASS] Check 3a (every one of the 3,381 forecast files was posted before 9:00 AM on D-1)
+
+******************** TASK 3b: Forecasts Known At Decision Time (Day D Rows, Forecast Columns Only) ********************
+  load_forecast   files=1,127  kept rows (day D)=27,048  discarded rows (other days)=189,336
+    forecast columns used : ['SystemTotal', 'North']
+    columns NOT used      : ['Coast', 'East', 'FarWest', 'NorthCentral', 'SouthCentral', 'Southern', 'West']
+    impossible local hours dropped: none
+  wind_forecast   files=1,127  kept rows (day D)=27,048  discarded rows (other days)=216,354
+    forecast columns used : ['STWPF_SYSTEM_WIDE']
+    columns NOT used      : ['ACTUAL_SYSTEM_WIDE', 'COP_HSL_SYSTEM_WIDE', 'WGRPP_SYSTEM_WIDE', 'ACTUAL_LZ_SOUTH_HOUSTON', 'COP_HSL_LZ_SOUTH_HOUSTON', 'STWPF_LZ_SOUTH_HOUSTON', 'WGRPP_LZ_SOUTH_HOUSTON', 'ACTUAL_LZ_WEST', 'COP_HSL_LZ_WEST', 'STWPF_LZ_WEST', 'WGRPP_LZ_WEST', 'ACTUAL_LZ_NORTH', 'COP_HSL_LZ_NORTH', 'STWPF_LZ_NORTH', 'WGRPP_LZ_NORTH']
+    impossible local hours dropped: none
+  solar_forecast  files=1,127  kept rows (day D)=27,045  discarded rows (other days)=216,354
+    forecast columns used : ['STPPF_SYSTEM_WIDE']
+    columns NOT used      : ['ACTUAL_SYSTEM_WIDE', 'COP_HSL_SYSTEM_WIDE', 'PVGRPP_SYSTEM_WIDE']
+    impossible local hours dropped: ['2023-03-12 HE03', '2024-03-10 HE03', '2025-03-09 HE03']
+  Note: ACTUAL_* are realized generation, observed after the fact (blank for day D, filled for
+  the past 48 h); COP_HSL comes from the resources' current operating plans and *GRPP is a
+  probability-of-exceedance production level. None of them is the requested forecast, so none
+  of them enters the dataset; the realized ACTUAL values would be look-ahead by construction.
+  [PASS] Check 3b (only SystemTotal, North, STWPF_SYSTEM_WIDE, STPPF_SYSTEM_WIDE kept)
+
+******************** TASK 4: One Table (Merge On interval_start_utc) And Completeness ********************
+Step-Number 1: Delivery hours 2022-12-01 .. 2025-12-31: 27,048
+Step-Number 2: Missing values per column after the merge: {'solar_fcst_mw': 3}
+Step-Number 3: Every filled value and how it was filled:
+    solar_fcst_mw | 2023-03-12 HE02 (2023-03-12 01:00 CST) -> 0.0 MW | zero (night hour, both neighbouring hours are 0 MW)
+    solar_fcst_mw | 2024-03-10 HE02 (2024-03-10 01:00 CST) -> 0.0 MW | zero (night hour, both neighbouring hours are 0 MW)
+    solar_fcst_mw | 2025-03-09 HE02 (2025-03-09 01:00 CST) -> 0.0 MW | zero (night hour, both neighbouring hours are 0 MW)
+    Why: on spring-forward days the solar report skips HE02 and instead lists an HE03 that
+    cannot exist (02:00-03:00 never happens); load and wind skip HE03 correctly. The impossible
+    row was dropped in Task 3 and the real HE02 (01:00-02:00 CST, night) is filled with 0 MW.
+Step-Number 4: Final shape (27048, 14), missing values left: 0, UTC key strictly increasing: True
+  [PASS] Check 4 (no missing values, every fill reported)
+
+******************** CHECK 5: Extreme And Negative Prices (Reported, NOT Removed) ********************
+      hours  da_min   da_max  rt_min   rt_max  negative_da_hours  negative_rt_hours  spread_abs_over_100  spread_abs_over_500
+year                                                                                                                         
+2022    744    5.13  2543.82  -12.68  3190.62                  0                 34                   28                   16
+2023   8760    1.10  4200.00  -31.63  5229.84                  0                125                  431                  117
+2024   8784   -4.00  2224.74  -31.78  3052.65                  6                189                  119                   21
+2025   8760    0.00   913.72  -32.42  2087.03                  0                224                   70                    5
+Spread quantiles ($/MWh): q0.1=-1,453.26, q1=-91.36, q5=-20.33, q25=-2.71, q50=1.63, q75=6.78, q95=26.77, q99=152.86, q99.9=1,366.27
+Ten largest |spread| hours:
+interval_start_local  hour_ending  da_price  rt_price   spread
+2023-09-06 19:00 CDT           20   1306.35   5229.84 -3923.49
+2023-09-06 16:00 CDT           17    467.10   3893.24 -3426.14
+2023-09-06 15:00 CDT           16    311.35   3536.42 -3225.06
+2023-06-20 19:00 CDT           20   1964.91   5070.93 -3106.02
+2023-08-15 19:00 CDT           20   3310.39    322.49  2987.90
+2022-12-23 06:00 CST            7    318.21   3114.10 -2795.89
+2023-08-25 16:00 CDT           17   3711.66    926.85  2784.81
+2022-12-23 07:00 CST            8    451.52   3190.62 -2739.10
+2023-08-26 18:00 CDT           19   3177.70    488.99  2688.71
+2023-08-26 19:00 CDT           20   3165.43    570.32  2595.11
+  Decision: these are real market events (scarcity, Winter Storm Elliott, high renewable
+  output), so they stay in the dataset untouched. Robustness is handled inside the models
+  (Huber / absolute-error losses, rank-based features) and is stated there.
+  [PASS] Check 5 (extreme and negative prices reported, none deleted or clipped)
+
+******************** CHECK 6: The Look-Ahead Test Catches The Two Classic Mistakes ********************
+  shift(24) and unshifted rolling(24*7) pass the test? False
+  caught: Oops! look-ahead on 2023-07-15 in ['spread_shift24', 'spread_roll7d']
+  [PASS] The guard works; every project feature is run through it in feature_factory.py
+
+Saved dataset : outputs/data/ercot_hb_north_hourly.csv
+Saved report  : outputs/tables/data_quality_report.txt
+
+******************** TASK 6.1: Class Balance Per Year (= Accuracy Of Always INC) ********************
+      hours  share_positive  mean_spread  median_spread  std_spread  always_inc_accuracy  always_dec_accuracy
+year                                                                                                         
+2023   8760          0.6348       7.1963         1.9912    181.5350               0.6348               0.3652
+2024   8784          0.5439       1.1716         0.6563     60.8349               0.5439               0.4561
+2025   8760          0.6248       0.9262         2.1450     39.6794               0.6248               0.3752
+
+******************** TASK 6.2: Prices And Spread Over Time, Largest |S| Hours ********************
+interval_start_local  hour_ending  da_price  rt_price   spread  hours_same_day_with_abs_S_over_100
+2023-09-06 19:00 CDT           20   1306.35   5229.84 -3923.49                                   8
+2023-09-06 16:00 CDT           17    467.10   3893.24 -3426.14                                   8
+2023-09-06 15:00 CDT           16    311.35   3536.42 -3225.06                                   8
+2023-06-20 19:00 CDT           20   1964.91   5070.93 -3106.02                                   6
+2023-08-15 19:00 CDT           20   3310.39    322.49  2987.90                                   8
+  figure -> sanity_prices_and_spread_over_time.png
+
+******************** TASK 6.3: Negative Prices (Kept In The Data) ********************
+      negative_da_hours  negative_rt_hours  lowest_da  lowest_rt
+year                                                            
+2023                  0                125        1.1     -31.63
+2024                  6                189       -4.0     -31.78
+2025                  0                224        0.0     -32.42
+  Negative RT hours by hour ending: HE1:18, HE2:26, HE3:39, HE4:42, HE5:28, HE6:9, HE7:3, HE8:3, HE9:13, HE10:31, HE11:45, HE12:43, HE13:38, HE14:45, HE15:47, HE16:49, HE17:28, HE18:11, HE20:1, HE21:2, HE22:4, HE23:3, HE24:10
+  figure -> sanity_negative_prices.png
+
+******************** TASK 6.4: Spread By Hour Of Day (Persistent DA Premium?) ********************
+  Share of positive spreads by hour ending (rows) and year (columns):
+hour_ending       1      2      3      4      5      6      7      8      9      10     11     12     13     14     15     16     17     18     19     20     21     22     23     24
+delivery_year                                                                                                                                                                        
+2023           0.608  0.536  0.536  0.529  0.515  0.532  0.512  0.526  0.584  0.562  0.595  0.622  0.666  0.679  0.745  0.775  0.734  0.773  0.756  0.732  0.712  0.671  0.704  0.633
+2024           0.475  0.395  0.403  0.413  0.454  0.475  0.497  0.522  0.574  0.505  0.516  0.546  0.596  0.585  0.609  0.653  0.650  0.667  0.664  0.615  0.653  0.587  0.538  0.462
+2025           0.625  0.620  0.566  0.589  0.603  0.625  0.584  0.647  0.625  0.553  0.567  0.567  0.611  0.619  0.652  0.658  0.647  0.682  0.685  0.660  0.649  0.616  0.682  0.663
+  Hours (of 24) where S > 0 in the majority of days: delivery_year
+2023    24
+2024    16
+2025    24
+  figure -> sanity_spread_by_hour_of_day.png
+
+******************** TASK 6.5: Spread Distribution (Heavy Tails) ********************
+  figure -> sanity_spread_distribution.png
+
+******************** FEATURES: Build Every Feature Known At 9:00 AM On D-1 ********************
+  using cache forecast_previous_vintage.pkl
+Step-Number 1: 42 features in 7 groups; model rows by split: {'validation': 8784, 'train': 8760, 'test': 8760}
+Step-Number 2: Feature values filled from the same delivery day (no D-2 / D-7 partner hour):
+    da_price_lag2: 3 hour(s)
+    rt_price_lag2: 3 hour(s)
+    spread_lag2: 3 hour(s)
+    da_price_lag7: 3 hour(s)
+    rt_price_lag7: 3 hour(s)
+    spread_lag7: 3 hour(s)
+    solar_fcst_revision_mw: 3 hour(s)
+    net_load_revision_mw: 3 hour(s)
+Step-Number 3: Missing feature values left in 2023-2025: 0
+Step-Number 4: Check 6, look-ahead test on the WHOLE feature builder (20 poison days, positive and negative garbage):
+  [PASS] calendar            11 features  (no price input)
+  [PASS] price_lags           9 features  (price features, D-2 or older)
+  [PASS] rolling_stats        7 features  (price features, D-2 or older)
+  [PASS] load_forecast        2 features  (no price input)
+  [PASS] renewable_forecast   2 features  (no price input)
+  [PASS] derived_net_load     7 features  (no price input)
+  [PASS] forecast_revisions   4 features  (no price input)
+Step-Number 5: Strongest |Spearman| with S on validation: spread_absmean28_d2 (+0.201), spread_std28_d2 (+0.192), spread_median28_d2 (+0.177), hour_sin (-0.163), spread_fracpos28_d2 (+0.145), is_onpeak_hour (+0.141), load_fcst_system_mw (+0.136), da_mean7_d2 (+0.135)
+Saved dataset : outputs/data/model_dataset.csv  (26,304 rows x 51 columns)
+Saved figure  : features_spearman_signal.png
+  [PASS] Check 6 (every feature passes assert_no_lookahead)
+
+******************** PART 1: Direction Prediction (Classification) ********************
+  using cache classifier_predictions_e40ced43b8.pkl
+  using cache regression_predictions_e40ced43b8.pkl
+Step-Number 1: Capital base for annualized returns = 24 MWh x q99(|S|, 2023) = $16,962.39
+Step-Number 2: Ramp rule threshold (chosen on 2024) = 5,017 MW; regress-then-sign models (chosen on 2024) = {'linear': 'muB__ridge', 'tree': 'muB__lgbm_huber'}
+
+  VALIDATION (2024), c = $0/MWh:
+                strategy               framing  accuracy  balanced_accuracy  roc_auc  log_loss  share_inc  total_profit  profit_per_mwh  sharpe  max_drawdown
+              always_inc              baseline    0.5439             0.5000      NaN       NaN     1.0000    10291.1575          1.1716  0.9670     9343.0950
+              always_dec              baseline    0.4561             0.5000      NaN       NaN     0.0000   -10291.1575         -1.1716 -0.9670    20191.8875
+          persistence_d2              baseline    0.5225             0.5189   0.5227       NaN     0.5428    11252.2725          1.2810  1.3924     4242.4975
+          persistence_d7              baseline    0.5272             0.5231   0.5238       NaN     0.5484     2567.9925          0.2923  0.3254     4457.0900
+       seasonal_majority              baseline    0.5551             0.5255      NaN       NaN     0.8390      398.4975          0.0454  0.0392     8726.9800
+                logistic        (a) classifier    0.5746             0.5429   0.6287    0.6786     0.8646    13928.5575          1.5857  1.3157     7946.6200
+     lightgbm_classifier        (a) classifier    0.5731             0.5408   0.6162    0.6858     0.8711    12454.4675          1.4179  1.1785     8282.6950
+       weighted_logistic        (a) classifier    0.5468             0.5040   0.5519    0.6886     0.9867    10362.2575          1.1797  1.0089     9368.0600
+   heuristic_mean28_sign         (b) heuristic    0.5397             0.5407   0.5381       NaN     0.4921     5048.7575          0.5748  0.6942     5158.8950
+  heuristic_netload_ramp         (b) heuristic    0.5005             0.4762   0.4613       NaN     0.7741     4621.9925          0.5262  0.6114     5072.2025
+     regress_sign_linear (c) regress-then-sign    0.5378             0.5181   0.5662       NaN     0.7261    10934.1475          1.2448  1.0519     8014.8900
+       regress_sign_tree (c) regress-then-sign    0.5705             0.5368   0.6204       NaN     0.8865    13537.3775          1.5411  1.2808     7928.9350
+    three_class_logistic   (d) different label    0.5725             0.5397   0.6196       NaN     0.8767    14793.8725          1.6842  1.4102     7947.7625
+threshold_label_logistic   (d) different label    0.5553             0.5157   0.6195    0.6950     0.9526    10975.1425          1.2494  1.0657     8520.7650
+
+  VALIDATION (2024), c = $1/MWh:
+                strategy               framing  accuracy  balanced_accuracy  roc_auc  log_loss  share_inc  total_profit  profit_per_mwh  sharpe  max_drawdown
+              always_inc              baseline    0.5439             0.5000      NaN       NaN     1.0000     1507.1575          0.1716  0.1416    12280.9475
+              always_dec              baseline    0.4561             0.5000      NaN       NaN     0.0000   -19075.1575         -2.1716 -1.7924    25534.6575
+          persistence_d2              baseline    0.5225             0.5189   0.5227       NaN     0.5428     2468.2725          0.2810  0.3054     6401.5400
+          persistence_d7              baseline    0.5272             0.5231   0.5238       NaN     0.5484    -6216.0075         -0.7077 -0.7876     8996.9175
+       seasonal_majority              baseline    0.5551             0.5255      NaN       NaN     0.8390    -8385.5025         -0.9546 -0.8251    11607.1175
+                logistic        (a) classifier    0.5746             0.5429   0.6287    0.6786     0.8646     5144.5575          0.5857  0.4859    10764.1925
+     lightgbm_classifier        (a) classifier    0.5731             0.5408   0.6162    0.6858     0.8711     3670.4675          0.4179  0.3473    11220.5475
+       weighted_logistic        (a) classifier    0.5468             0.5040   0.5519    0.6886     0.9867     1578.2575          0.1797  0.1537    12223.4475
+   heuristic_mean28_sign         (b) heuristic    0.5397             0.5407   0.5381       NaN     0.4921    -3735.2425         -0.4252 -0.5136     6786.4025
+  heuristic_netload_ramp         (b) heuristic    0.5005             0.4762   0.4613       NaN     0.7741    -4162.0075         -0.4738 -0.5505     6299.1175
+     regress_sign_linear (c) regress-then-sign    0.5378             0.5181   0.5662       NaN     0.7261     2150.1475          0.2448  0.2068    10985.3450
+       regress_sign_tree (c) regress-then-sign    0.5705             0.5368   0.6204       NaN     0.8865     4753.3775          0.5411  0.4497    10855.8525
+    three_class_logistic   (d) different label    0.5725             0.5397   0.6196       NaN     0.8767     6009.8725          0.6842  0.5729    10575.0825
+threshold_label_logistic   (d) different label    0.5553             0.5157   0.6195    0.6950     0.9526     2191.1425          0.2494  0.2128    11448.3425
+
+  TEST (2025), c = $0/MWh:
+                strategy               framing  accuracy  balanced_accuracy  roc_auc  log_loss  share_inc  total_profit  profit_per_mwh  sharpe  max_drawdown
+              always_inc              baseline    0.6248             0.5000      NaN       NaN     1.0000      8113.465          0.9262  1.1894     5058.8675
+              always_dec              baseline    0.3752             0.5000      NaN       NaN     0.0000     -8113.465         -0.9262 -1.1894    13876.3350
+          persistence_d2              baseline    0.5342             0.5030   0.5102       NaN     0.6261      4665.590          0.5326  0.8021     4208.5975
+          persistence_d7              baseline    0.5338             0.5038   0.5160       NaN     0.6211     11972.705          1.3667  2.0687     4564.4125
+       seasonal_majority              baseline    0.5941             0.5101      NaN       NaN     0.8392      5186.100          0.5920  0.9118     3550.3625
+                logistic        (a) classifier    0.6235             0.5060   0.5490    0.6716     0.9725      8870.415          1.0126  1.3143     4474.7725
+     lightgbm_classifier        (a) classifier    0.6258             0.5066   0.5458    0.6663     0.9793      8354.455          0.9537  1.2262     5058.8675
+       weighted_logistic        (a) classifier    0.6240             0.5015   0.5278    0.6628     0.9910      8646.305          0.9870  1.3171     4278.4025
+   heuristic_mean28_sign         (b) heuristic    0.5176             0.4842   0.4887       NaN     0.6298      -345.190         -0.0394 -0.0688     4567.0700
+  heuristic_netload_ramp         (b) heuristic    0.5505             0.4865   0.4838       NaN     0.7531      1476.620          0.1686  0.3390     4597.3975
+     regress_sign_linear (c) regress-then-sign    0.6147             0.5004   0.5249       NaN     0.9582      7559.915          0.8630  1.1301     4009.4925
+       regress_sign_tree (c) regress-then-sign    0.6276             0.5174   0.5532       NaN     0.9460      9716.150          1.1091  1.4348     4589.1525
+    three_class_logistic   (d) different label    0.6184             0.5019   0.5488       NaN     0.9674      8721.505          0.9956  1.3026     4177.6275
+threshold_label_logistic   (d) different label    0.6196             0.4976   0.5479    0.6771     0.9885      8282.635          0.9455  1.2314     4324.0175
+
+  TEST (2025), c = $1/MWh:
+                strategy               framing  accuracy  balanced_accuracy  roc_auc  log_loss  share_inc  total_profit  profit_per_mwh  sharpe  max_drawdown
+              always_inc              baseline    0.6248             0.5000      NaN       NaN     1.0000      -646.535         -0.0738 -0.0948     5997.8800
+              always_dec              baseline    0.3752             0.5000      NaN       NaN     0.0000    -16873.465         -1.9262 -2.4735    20380.3350
+          persistence_d2              baseline    0.5342             0.5030   0.5102       NaN     0.6261     -4094.410         -0.4674 -0.7039     7063.3625
+          persistence_d7              baseline    0.5338             0.5038   0.5160       NaN     0.6211      3212.705          0.3667  0.5551     5140.4125
+       seasonal_majority              baseline    0.5941             0.5101      NaN       NaN     0.8392     -3573.900         -0.4080 -0.6284     6387.9100
+                logistic        (a) classifier    0.6235             0.5060   0.5490    0.6716     0.9725       110.415          0.0126  0.0164     5413.7850
+     lightgbm_classifier        (a) classifier    0.6258             0.5066   0.5458    0.6663     0.9793      -405.545         -0.0463 -0.0595     5997.8800
+       weighted_logistic        (a) classifier    0.6240             0.5015   0.5278    0.6628     0.9910      -113.695         -0.0130 -0.0173     5217.4150
+   heuristic_mean28_sign         (b) heuristic    0.5176             0.4842   0.4887       NaN     0.6298     -9105.190         -1.0394 -1.8141     9175.6900
+  heuristic_netload_ramp         (b) heuristic    0.5505             0.4865   0.4838       NaN     0.7531     -7283.380         -0.8314 -1.6722     9734.9325
+     regress_sign_linear (c) regress-then-sign    0.6147             0.5004   0.5249       NaN     0.9582     -1200.085         -0.1370 -0.1794     4921.4925
+       regress_sign_tree (c) regress-then-sign    0.6276             0.5174   0.5532       NaN     0.9460       956.150          0.1091  0.1412     5528.1650
+    three_class_logistic   (d) different label    0.6184             0.5019   0.5488       NaN     0.9674       -38.495         -0.0044 -0.0057     5128.3400
+threshold_label_logistic   (d) different label    0.6196             0.4976   0.5479    0.6771     0.9885      -477.365         -0.0545 -0.0710     5263.0300
+
+  Accuracy and profit by |S| bucket (2025, c = $0):
+         strategy  bucket  hours  accuracy  profit_c0  abs_spread_at_stake
+       always_inc    < $1    909     0.546     37.508              444.698
+       always_inc    $1-5   3198     0.614   2422.425             9076.325
+       always_inc   $5-20   3673     0.684  13312.235            36939.345
+       always_inc $20-100    910     0.520  -1506.118            33105.408
+       always_inc  > $100     70     0.400  -6152.585            18095.760
+         logistic    < $1    909     0.534     24.068              444.698
+         logistic    $1-5   3198     0.611   2320.135             9076.325
+         logistic   $5-20   3673     0.684  13543.795            36939.345
+         logistic $20-100    910     0.529   -864.998            33105.408
+         logistic  > $100     70     0.400  -6152.585            18095.760
+weighted_logistic    < $1    909     0.541     34.493              444.698
+weighted_logistic    $1-5   3198     0.617   2445.300             9076.325
+weighted_logistic   $5-20   3673     0.680  13064.375            36939.345
+weighted_logistic $20-100    910     0.522  -1464.813            33105.408
+weighted_logistic  > $100     70     0.429  -5433.050            18095.760
+regress_sign_tree    < $1    909     0.528     25.443              444.698
+regress_sign_tree    $1-5   3198     0.616   2423.935             9076.325
+regress_sign_tree   $5-20   3673     0.691  14066.255            36939.345
+regress_sign_tree $20-100    910     0.532   -646.897            33105.408
+regress_sign_tree  > $100     70     0.400  -6152.585            18095.760
+
+******************** PART 1: Feature Ablation (Logistic, Drop One Group) ********************
+     dropped_group  n_features  log_loss  delta_log_loss  roc_auc  delta_roc_auc  profit_c0
+              none          42   0.67862         0.00000  0.62867        0.00000 13928.5575
+          calendar          31   0.67728        -0.00134  0.62411       -0.00457 13312.5275
+        price_lags          33   0.67779        -0.00083  0.63303        0.00435 13661.0775
+     rolling_stats          35   0.69113         0.01251  0.61849       -0.01019 12975.7675
+     load_forecast          40   0.67466        -0.00396  0.62572       -0.00295 12544.6375
+renewable_forecast          40   0.67811        -0.00051  0.62759       -0.00108 13976.1075
+  derived_net_load          35   0.68019         0.00157  0.62178       -0.00689 13689.1525
+forecast_revisions          38   0.68363         0.00501  0.61616       -0.01252 11900.0675
+
+******************** PART 1: Robustness, Same Settings Refitted On 2023-2024 ********************
+                 model  accuracy  balanced_accuracy  roc_auc  log_loss  profit_c0  profit_c1
+logistic_refit_2023_24    0.6047             0.5102   0.5564    0.6647   7492.925  -1267.075
+lightgbm_refit_2023_24    0.6232             0.5075   0.5489    0.6591   8046.990   -713.010
+
+  [PASS] Part 1 finished: tables -> outputs/tables/part1_*.csv, figures -> outputs/figures/part1_*.png
+
+******************** PART 2: Spread Magnitude Forecast (Regression) ********************
+  using cache classifier_predictions_e40ced43b8.pkl
+  using cache regression_predictions_e40ced43b8.pkl
+Step-Number 1: MAE / RMSE of every regressor (2024 validation and 2025 test):
+              model      split     loss    MAE   RMSE  huber_loss  mean_prediction  mean_target  sign_accuracy  spearman
+         muB__ridge validation  squared 13.447 60.926      99.146            4.188        1.172          0.538     0.156
+         muB__ridge       test  squared 12.676 40.575      89.141            8.182        0.926          0.615     0.122
+         muB__lasso validation  squared 14.604 61.129     106.080            7.196        1.172          0.544       NaN
+         muB__lasso       test  squared 12.234 40.169      84.218            7.196        0.926          0.625       NaN
+  muB__huber_linear validation    huber 12.162 60.790      90.155            2.424        1.172          0.545     0.213
+  muB__huber_linear       test    huber 10.769 39.714      74.547            3.156        0.926          0.625     0.160
+    muB__lad_linear validation absolute 12.104 60.800      90.028            1.887        1.172          0.545     0.210
+    muB__lad_linear       test absolute 10.758 39.685      74.406            2.395        0.926          0.625     0.171
+  muB__lgbm_squared validation  squared 13.293 60.504      97.067            5.280        1.172          0.537     0.109
+  muB__lgbm_squared       test  squared 11.436 39.805      78.981            5.428        0.926          0.617     0.090
+ muB__lgbm_absolute validation absolute 11.957 60.568      88.804            3.290        1.172          0.572     0.249
+ muB__lgbm_absolute       test absolute 10.708 39.653      74.547            4.201        0.926          0.627     0.209
+    muB__lgbm_huber validation    huber 11.976 60.581      88.890            3.440        1.172          0.570     0.262
+    muB__lgbm_huber       test    huber 10.681 39.829      74.179            4.616        0.926          0.628     0.219
+        absA__ridge validation  squared 25.065 61.005     206.061           24.534       12.250            NaN     0.296
+        absA__ridge       test  squared 31.732 48.286     269.015           38.327       11.149            NaN     0.359
+   absA__lad_linear validation absolute  9.958 59.583      73.787            4.662       12.250            NaN     0.350
+   absA__lad_linear       test absolute  8.180 38.098      53.411            5.990       11.149            NaN     0.387
+ absA__lgbm_squared validation  squared 21.612 55.087     167.366           25.699       12.250            NaN     0.448
+ absA__lgbm_squared       test  squared 20.199 44.069     153.839           26.783       11.149            NaN     0.481
+absA__lgbm_absolute validation absolute  9.490 57.416      69.459            6.755       12.250            NaN     0.481
+absA__lgbm_absolute       test absolute  7.954 37.098      52.186            7.662       11.149            NaN     0.517
+   absA__lgbm_huber validation    huber  9.614 56.963      68.726            8.500       12.250            NaN     0.476
+   absA__lgbm_huber       test    huber  8.055 36.574      51.509            9.687       11.149            NaN     0.518
+       qB__lgbm_q50 validation quantile 11.957 60.568      88.804            3.290        1.172          0.572     0.249
+       qB__lgbm_q50       test quantile 10.708 39.653      74.547            4.201        0.926          0.627     0.209
+Step-Number 2: Quantile regression interval [q10, q90] (nominal coverage 80%):
+     split  coverage_q10_q90  nominal  below_q10  above_q90  mean_width
+validation            0.7802      0.8     0.1126     0.1072     27.6628
+      test            0.7538      0.8     0.1247     0.1216     30.5753
+Step-Number 3: Choices made on 2024 -> classifier p: p__logistic, View A |S_hat|: absA__lgbm_huber, View B mu_hat: muB__lgbm_huber, tau by cost: {0.0: 2.0, 1.0: 5.0}
+Step-Number 4: Tau sweep for the primary View B model:
+ cost  tau  n_trades  total_profit  profit_per_mwh  win_rate      split
+  0.0  0.0      8784    13537.3775          1.5411    0.5705 validation
+  0.0  1.0      6366    13877.0700          2.1799    0.5933 validation
+  0.0  2.0      4712    15060.8575          3.1963    0.6267 validation
+  0.0  5.0      1915    13889.9275          7.2532    0.6825 validation
+  0.0 10.0       685    14006.9650         20.4481    0.7095 validation
+  1.0  0.0      6366     7511.0700          1.1799    0.5416 validation
+  1.0  1.0      4712    10348.8575          2.1963    0.5804 validation
+  1.0  2.0      3472    11631.7600          3.3502    0.6141 validation
+  1.0  5.0      1487    14723.9475          9.9018    0.6759 validation
+  1.0 10.0       570    13256.5525         23.2571    0.7070 validation
+  0.0  0.0      8760     9716.1500          1.1091    0.6276       test
+  0.0  1.0      7464     9276.7825          1.2429    0.6405       test
+  0.0  2.0      6253     8328.5225          1.3319    0.6470       test
+  0.0  5.0      3110     6151.5750          1.9780    0.6627       test
+  0.0 10.0       871     3409.4675          3.9144    0.6843       test
+  1.0  0.0      7464     1812.7825          0.2429    0.5954       test
+  1.0  1.0      6253     2075.5225          0.3319    0.6093       test
+  1.0  2.0      5094     2681.5300          0.5264    0.6256       test
+  1.0  5.0      2334     3507.7450          1.5029    0.6517       test
+  1.0 10.0       711     4273.7200          6.0109    0.6751       test
+Step-Number 5: Tau rule and sizing rules at the SAME total volume:
+     split                  strategy  cost  mwh_traded  n_trades  max_hourly_mwh  total_profit  profit_per_mwh  sharpe  max_drawdown  win_rate
+validation             viewB_tau2_c0   0.0      4712.0      4712           1.000     15060.857           3.196   1.454      7748.622     0.627
+validation            size_B_unit_c0   0.0      8784.0      8784           1.000     13537.377           1.541   1.281      7928.935     0.570
+validation            size_B_edge_c0   0.0      8784.0      8784           8.241     74720.571           8.506   1.592     28167.583     0.570
+validation size_B_edge_over_var28_c0   0.0      8784.0      8784          13.811     27296.977           3.108   1.483      7781.438     0.570
+validation  size_B_edge_over_varQ_c0   0.0      8784.0      8784           7.215      1981.512           0.226   0.446      4787.316     0.570
+validation            size_A_unit_c0   0.0      8784.0      8784           1.000     13928.557           1.586   1.316      7946.620     0.575
+validation            size_A_edge_c0   0.0      8784.0      8784          15.471     95092.909          10.826   1.160     61517.161     0.575
+validation size_A_edge_over_var28_c0   0.0      8784.0      8784          21.772     54783.057           6.237   1.537      6981.087     0.575
+validation             viewB_tau5_c1   1.0      1487.0      1487           1.000     14723.947           9.902   1.551      5251.550     0.676
+validation            size_B_unit_c1   1.0      6366.0      6366           1.000      7511.070           1.180   0.717      9873.820     0.542
+validation            size_B_edge_c1   1.0      6366.0      6366           7.589     61267.864           9.624   1.459     26110.558     0.542
+validation size_B_edge_over_var28_c1   1.0      6366.0      6366          15.295     29707.803           4.667   1.228      8966.701     0.542
+validation  size_B_edge_over_varQ_c1   1.0      6366.0      6366           8.689     -3350.267          -0.526  -0.752      6088.421     0.542
+validation            size_A_unit_c1   1.0      6366.0      5439           1.170     10708.516           1.682   0.883     10276.958     0.568
+validation            size_A_edge_c1   1.0      6366.0      5439          15.086     83687.828          13.146   1.065     60075.238     0.568
+validation size_A_edge_over_var28_c1   1.0      6366.0      5439          37.988     91603.551          14.389   1.448      9807.170     0.568
+      test             viewB_tau2_c0   0.0      6253.0      6253           1.000      8328.523           1.332   1.272      4275.120     0.647
+      test            size_B_unit_c0   0.0      8760.0      8760           1.000      9716.150           1.109   1.435      4589.152     0.628
+      test            size_B_edge_c0   0.0      8760.0      8760           5.519     25505.653           2.912   1.413      9510.463     0.628
+      test size_B_edge_over_var28_c0   0.0      8760.0      8760          15.357      9788.902           1.117   1.618      3659.908     0.628
+      test  size_B_edge_over_varQ_c0   0.0      8760.0      8760           4.534      7077.417           0.808   1.763      2422.945     0.628
+      test            size_A_unit_c0   0.0      8760.0      8760           1.000      8870.415           1.013   1.314      4474.772     0.624
+      test            size_A_edge_c0   0.0      8760.0      8760          11.341     46677.220           5.328   2.030     12509.922     0.624
+      test size_A_edge_over_var28_c0   0.0      8760.0      8760          15.089     14412.824           1.645   1.998      2804.448     0.624
+      test             viewB_tau5_c1   1.0      2334.0      2334           1.000      3507.745           1.503   0.645      3167.212     0.652
+      test            size_B_unit_c1   1.0      7464.0      7464           1.000      1812.782           0.243   0.269      5423.012     0.595
+      test            size_B_edge_c1   1.0      7464.0      7464           5.633     17444.848           2.337   0.984     10258.060     0.595
+      test size_B_edge_over_var28_c1   1.0      7464.0      7464          20.115      2050.442           0.275   0.289      5034.256     0.595
+      test  size_B_edge_over_varQ_c1   1.0      7464.0      7464           5.011     -1327.621          -0.178  -0.322      3741.042     0.595
+      test            size_A_unit_c1   1.0      7464.0      6979           1.069      1161.661           0.156   0.164      5487.422     0.595
+      test            size_A_edge_c1   1.0      7464.0      6979          12.350     42076.474           5.637   1.760     13384.715     0.595
+      test size_A_edge_over_var28_c1   1.0      7464.0      6979          20.113     12080.404           1.618   1.189      6215.994     0.595
+Step-Number 6: Sign versus size, P(S > 0) by |S| decile:
+split               test  train  validation
+abs_spread_decile                          
+1                  0.547  0.555       0.478
+2                  0.536  0.533       0.489
+3                  0.624  0.559       0.511
+4                  0.645  0.596       0.510
+5                  0.667  0.624       0.552
+6                  0.691  0.655       0.559
+7                  0.705  0.731       0.570
+8                  0.676  0.742       0.616
+9                  0.656  0.695       0.613
+10                 0.501  0.658       0.542
+Step-Number 7: Classifier + View A filter, cut-off chosen on 2024 by cost: {0.0: 'q90', 1.0: 'q90'}
+     split cut_name  abs_s_hat_cut  cost  n_trades  total_profit  profit_per_mwh
+validation       q0           -inf   0.0      8784     13928.557           1.586
+validation       q0           -inf   1.0      8784      5144.557           0.586
+validation      q25          3.985   0.0      6588     13948.000           2.117
+validation      q25          3.985   1.0      6588      7360.000           1.117
+validation      q50          5.250   0.0      4392     12753.985           2.904
+validation      q50          5.250   1.0      4392      8361.985           1.904
+validation      q75          8.469   0.0      2196     12883.278           5.867
+validation      q75          8.469   1.0      2196     10687.277           4.867
+validation      q90         17.166   0.0       879     15308.727          17.416
+validation      q90         17.166   1.0       879     14429.727          16.416
+      test       q0           -inf   0.0      8760      8870.415           1.013
+      test       q0           -inf   1.0      8760       110.415           0.013
+      test      q25          3.985   0.0      7243      8039.085           1.110
+      test      q25          3.985   1.0      7243       796.085           0.110
+      test      q50          5.250   0.0      5915      7429.372           1.256
+      test      q50          5.250   1.0      5915      1514.372           0.256
+      test      q75          8.469   0.0      2756      4245.770           1.541
+      test      q75          8.469   1.0      2756      1489.770           0.541
+      test      q90         17.166   0.0      1092      3480.225           3.187
+      test      q90         17.166   1.0      1092      2388.225           2.187
+
+  [PASS] Part 2 finished: tables -> outputs/tables/part2_*.csv, figures -> outputs/figures/part2_*.png
+
+******************** PART 3: Trading Budget Allocation (24 MWh/Day, <= 4 MWh/Hour) ********************
+Step-Number 1: mu_hat from muB__lgbm_huber (chosen in Part 2 on 2024); sigma_hat = 28-day same-hour std (D-2); collateral = 2 x sigma per MWh, daily collateral budget = 24 x median(2023) = $504
+Step-Number 2: lambda = most profitable on 2024 with max drawdown <= 20% of capital ($3,392); L = 5% of capital (policy): Q3_mean_variance c=$0 -> 0.01, Q3_mean_variance c=$1 -> 0.01, Q3_cvar c=$0 -> 848.12, Q3_cvar c=$1 -> 848.12
+            rule  cost  parameter  total_profit  sharpe  max_drawdown  avg_budget_used
+Q3_mean_variance   0.0     0.0001    22483.9975  0.7699    29421.3615           0.9919
+Q3_mean_variance   0.0     0.0003    14830.4810  0.6121    23005.7357           0.9673
+Q3_mean_variance   0.0     0.0010    12883.0795  0.7095    16717.2170           0.7286
+Q3_mean_variance   0.0     0.0030    12356.1185  1.0648     7841.6487           0.4434
+Q3_mean_variance   0.0     0.0100    10448.7495  1.3573     3064.1130           0.1961
+Q3_mean_variance   0.0     0.0300     7923.2688  1.3660      811.4427           0.0576
+Q3_mean_variance   0.0     0.1000     1964.3093  1.3197      196.7817           0.0092
+Q3_mean_variance   1.0     0.0001    13849.9102  0.4743    31577.7133           0.9861
+Q3_mean_variance   1.0     0.0003     6937.7705  0.2868    24825.8655           0.9091
+Q3_mean_variance   1.0     0.0010     7998.7483  0.4455    16993.6977           0.6121
+Q3_mean_variance   1.0     0.0030     9750.3432  0.8743     7396.4155           0.3460
+Q3_mean_variance   1.0     0.0100     9236.1645  1.2239     2673.4782           0.1252
+Q3_mean_variance   1.0     0.0300     7097.6652  1.3030      739.5147           0.0354
+Q3_mean_variance   1.0     0.1000     1779.4913  1.2548      213.8002           0.0058
+         Q3_cvar   0.0     5.0000      935.3805  2.5609      221.9798           0.1164
+         Q3_cvar   0.0    10.0000     1120.0935  1.6762      501.8452           0.1898
+         Q3_cvar   0.0    25.0000     1291.5912  0.7940     1477.8028           0.3375
+         Q3_cvar   0.0    50.0000     1555.4152  0.4795     3278.3670           0.5064
+         Q3_cvar   0.0   100.0000      728.3518  0.1100     7094.1982           0.7232
+         Q3_cvar   0.0   200.0000     7160.5863  0.7818     8587.0167           0.9062
+         Q3_cvar   0.0   400.0000     9558.1558  0.6204    15243.5818           0.9824
+         Q3_cvar   0.0   800.0000     6640.5892  0.3061    24136.6920           0.9942
+         Q3_cvar   0.0  1600.0000    14405.9557  0.5304    31309.4660           0.9969
+         Q3_cvar   0.0  3200.0000    23135.7285  0.7966    30282.1877           0.9980
+         Q3_cvar   1.0     5.0000     -299.7545 -0.9465      351.2692           0.0181
+         Q3_cvar   1.0    10.0000     -680.9055 -1.0352      801.6515           0.0439
+         Q3_cvar   1.0    25.0000    -1411.3833 -0.8266     1891.8015           0.1227
+         Q3_cvar   1.0    50.0000    -2654.4567 -0.7683     3774.3625           0.2453
+         Q3_cvar   1.0   100.0000    -4096.3602 -0.6008     7518.0502           0.4497
+         Q3_cvar   1.0   200.0000    -2143.0142 -0.2203    10398.9540           0.7119
+         Q3_cvar   1.0   400.0000     1043.3383  0.0696    15859.0478           0.9145
+         Q3_cvar   1.0   800.0000    -2275.9258 -0.1064    25812.2430           0.9838
+         Q3_cvar   1.0  1600.0000     5485.2562  0.2021    33566.0710           0.9953
+         Q3_cvar   1.0  3200.0000    14378.5862  0.4955    32620.9992           0.9978
+Step-Number 3: Every allocation rule at the same budget:
+     split                      strategy  cost  total_profit  mwh_traded  profit_per_mwh  avg_budget_used  max_drawdown  sharpe  worst_day  win_rate
+validation              part3_A_equal_c0   0.0     13566.325      8781.5           1.545            1.000      7899.987   1.284  -3500.165     0.570
+validation               part3_A_edge_c0   0.0     23538.075      8360.2           2.815            0.952     23204.730   0.892 -13667.404     0.576
+validation          part3_A_inv_sigma_c0   0.0      7688.339      8344.2           0.921            0.950      4319.273   1.140  -2122.900     0.565
+validation      part3_A_edge_over_var_c0   0.0      8122.195      8362.3           0.971            0.952      8142.569   0.880  -5425.721     0.562
+validation           part3_B_knapsack_c0   0.0     32735.310      8784.0           3.727            1.000     29737.210   1.049 -14370.770     0.661
+validation     part3_Q2_collateral_dp_c0   0.0      3178.145      7301.0           0.435            0.831     19040.575   0.194 -11603.475     0.621
+validation part3_Q2_collateral_greedy_c0   0.0      3762.178      7429.0           0.506            0.846     18626.770   0.232 -11492.110     0.623
+validation     part3_Q3_mean_variance_c0   0.0     10448.750      1722.4           6.066            0.196      3064.113   1.357  -1880.270     0.586
+validation              part3_Q3_cvar_c0   0.0      6586.676      8736.1           0.754            0.995     25241.613   0.295 -11674.640     0.639
+validation              part3_A_equal_c1   1.0      4784.825      8781.5           0.545            1.000     10824.405   0.453  -3524.165     0.501
+validation               part3_A_edge_c1   1.0     14197.149      8493.9           1.671            0.967     29954.061   0.502 -14194.074     0.549
+validation          part3_A_inv_sigma_c1   1.0      -655.861      8344.2          -0.079            0.950      8672.752  -0.097  -2145.600     0.493
+validation      part3_A_edge_over_var_c1   1.0     -4874.490      8499.6          -0.573            0.968     16014.717  -0.376  -9692.999     0.537
+validation           part3_B_knapsack_c1   1.0     23951.310      8784.0           2.727            1.000     31993.210   0.767 -14394.770     0.633
+validation     part3_Q2_collateral_dp_c1   1.0     -2069.365      6541.0          -0.316            0.745     19913.028  -0.125 -11707.368     0.590
+validation part3_Q2_collateral_greedy_c1   1.0     -2496.405      6725.0          -0.371            0.766     19874.407  -0.150 -11686.650     0.593
+validation     part3_Q3_mean_variance_c1   1.0      9236.165      1099.7           8.399            0.125      2673.478   1.224  -1795.818     0.584
+validation              part3_Q3_cvar_c1   1.0     -2095.162      8670.6          -0.242            0.987     27031.498  -0.095 -11710.041     0.602
+      test              part3_A_equal_c0   0.0      9685.356      8757.5           1.106            1.000      4589.152   1.430  -2853.115     0.628
+      test               part3_A_edge_c0   0.0     18547.331      8331.6           2.226            0.951      7575.706   1.430  -6098.574     0.634
+      test          part3_A_inv_sigma_c0   0.0      5421.294      8321.1           0.652            0.950      2599.246   1.278  -1894.847     0.625
+      test      part3_A_edge_over_var_c0   0.0      6803.018      8330.1           0.817            0.951      3410.239   1.295  -2767.007     0.627
+      test           part3_B_knapsack_c0   0.0     19683.730      8760.0           2.247            1.000     12232.490   0.967 -10172.920     0.687
+      test     part3_Q2_collateral_dp_c0   0.0     11328.385      7360.0           1.539            0.840      4848.778   1.739  -2554.985     0.642
+      test part3_Q2_collateral_greedy_c0   0.0     12010.977      7424.0           1.618            0.847      4507.505   1.873  -2667.130     0.641
+      test     part3_Q3_mean_variance_c0   0.0      3396.254      2984.2           1.138            0.341      2424.303   1.010  -1841.877     0.638
+      test              part3_Q3_cvar_c0   0.0     10383.800      8718.3           1.191            0.995     14535.664   0.620 -10128.746     0.669
+      test              part3_A_equal_c1   1.0       927.856      8757.5           0.106            1.000      5528.165   0.137  -2877.115     0.573
+      test               part3_A_edge_c1   1.0     11213.303      8405.6           1.334            0.960      8952.703   0.795  -6732.107     0.599
+      test          part3_A_inv_sigma_c1   1.0     -2899.806      8321.1          -0.348            0.950      4112.716  -0.683  -1917.647     0.570
+      test      part3_A_edge_over_var_c1   1.0       142.226      8404.0           0.017            0.959      4815.155   0.023  -3191.988     0.591
+      test           part3_B_knapsack_c1   1.0     10923.730      8760.0           1.247            1.000     13240.490   0.536 -10196.920     0.668
+      test     part3_Q2_collateral_dp_c1   1.0      2665.022      6625.0           0.402            0.756      5165.942   0.382  -2567.985     0.610
+      test part3_Q2_collateral_greedy_c1   1.0      2496.825      6735.0           0.371            0.769      5428.552   0.361  -2681.130     0.602
+      test     part3_Q3_mean_variance_c1   1.0       406.129      2084.4           0.195            0.238      2608.083   0.126  -1835.427     0.608
+      test              part3_Q3_cvar_c1   1.0      1479.145      8674.5           0.171            0.990     15937.347   0.089 -10149.645     0.639
+Step-Number 4: Five worst days on 2025 at c = $1:
+rank                                 1       2       3       4       5
+strategy                                                              
+part3_A_edge_c1                -6732.1 -5686.2 -3620.8 -2792.7 -2423.5
+part3_A_edge_over_var_c1       -3192.0 -1883.7 -1487.4 -1308.1 -1287.6
+part3_A_equal_c1               -2877.1 -2414.2 -2291.9 -2231.3  -815.1
+part3_A_inv_sigma_c1           -1917.6 -1757.4 -1214.3  -860.4  -586.0
+part3_B_knapsack_c1           -10196.9 -8703.0 -7424.1 -3369.6 -2821.8
+part3_Q2_collateral_dp_c1      -2568.0 -2142.0 -2018.2 -1512.3 -1492.2
+part3_Q2_collateral_greedy_c1  -2681.1 -2142.0 -2018.2 -1634.7 -1499.7
+part3_Q3_cvar_c1              -10149.6 -8744.0 -4865.5 -2761.1 -1578.4
+part3_Q3_mean_variance_c1      -1835.4 -1544.8  -663.0  -476.7  -444.0
+Step-Number 5: Unit-weight knapsack, greedy == DP on every day? mismatches = 0 of 731 days
+  Collateral knapsack, ratio greedy sub-optimal on test: 68.2% of days (mean gap $2.83/day), validation: 70.5% of days (mean gap $5.90/day)
+  Worked example (first day where the greedy is sub-optimal), hours with any volume:
+delivery_date  hour_ending  mu_hat  net_edge_per_mwh  collateral_per_mwh  edge_per_collateral_dollar  greedy_mwh  dp_mwh
+   2024-01-01            6   2.734             1.734                  21                       0.083         0.0     2.0
+   2024-01-01            8   6.107             5.107                  60                       0.085         0.0     4.0
+   2024-01-01            9   2.409             1.409                   9                       0.157         4.0     1.0
+   2024-01-01           10   2.233             1.233                   8                       0.154         4.0     0.0
+   2024-01-01           14   2.633             1.633                   8                       0.204         4.0     4.0
+   2024-01-01           15   3.190             2.190                   9                       0.243         4.0     4.0
+   2024-01-01           16   3.560             2.560                  10                       0.256         4.0     4.0
+   2024-01-01           18   3.120             2.120                  51                       0.042         0.0     1.0
+   2024-01-01           19   3.189             2.189                  13                       0.168         4.0     4.0
+
+  [PASS] Part 3 finished: tables -> outputs/tables/part3_*.csv, figures -> outputs/figures/part3_*.png
+
+******************** FINAL EVALUATION: Every Strategy On The 2025 Test Set ********************
+Step-Number 1: Capital base for annualized return = $16,962.39 (same for every strategy)
+           part                      strategy  cost  total_profit  mwh_traded  profit_per_mwh  n_trades  win_rate  annualized_return  sharpe  max_drawdown  top5_days_profit  profit_ex_top5_days
+         Part 1                    always_inc   0.0      8113.465      8760.0           0.926      8760     0.625              0.478   1.189      5058.867          5587.208             2526.257
+         Part 1                    always_inc   1.0      -646.535      8760.0          -0.074      8760     0.568             -0.038  -0.095      5997.880          5467.208            -6113.742
+         Part 1                    always_dec   0.0     -8113.465      8760.0          -0.926      8760     0.375             -0.478  -1.189     13876.335         10621.457           -18734.922
+         Part 1                    always_dec   1.0    -16873.465      8760.0          -1.926      8760     0.328             -0.995  -2.474     20380.335         10501.457           -27374.922
+         Part 1                persistence_d2   0.0      4665.590      8760.0           0.533      8760     0.534              0.275   0.802      4208.598          7783.295            -3117.705
+         Part 1                persistence_d2   1.0     -4094.410      8760.0          -0.467      8760     0.482             -0.241  -0.704      7063.363          7663.295           -11757.705
+         Part 1                persistence_d7   0.0     11972.705      8760.0           1.367      8760     0.534              0.706   2.069      4564.412          8548.228             3424.478
+         Part 1                persistence_d7   1.0      3212.705      8760.0           0.367      8760     0.483              0.189   0.555      5140.412          8428.228            -5215.522
+         Part 1             seasonal_majority   0.0      5186.100      8760.0           0.592      8760     0.594              0.306   0.912      3550.362          4321.997              864.103
+         Part 1             seasonal_majority   1.0     -3573.900      8760.0          -0.408      8760     0.539             -0.211  -0.628      6387.910          4201.997            -7775.897
+         Part 1                      logistic   0.0      8870.415      8760.0           1.013      8760     0.624              0.523   1.314      4474.772          5581.568             3288.848
+         Part 1                      logistic   1.0       110.415      8760.0           0.013      8760     0.568              0.007   0.016      5413.785          5461.568            -5351.152
+         Part 1           lightgbm_classifier   0.0      8354.455      8760.0           0.954      8760     0.626              0.493   1.226      5058.867          5558.688             2795.768
+         Part 1           lightgbm_classifier   1.0      -405.545      8760.0          -0.046      8760     0.569             -0.024  -0.060      5997.880          5438.688            -5844.233
+         Part 1             weighted_logistic   0.0      8646.305      8760.0           0.987      8760     0.624              0.510   1.317      4278.402          5516.188             3130.117
+         Part 1             weighted_logistic   1.0      -113.695      8760.0          -0.013      8760     0.568             -0.007  -0.017      5217.415          5396.188            -5509.883
+         Part 1         heuristic_mean28_sign   0.0      -345.190      8760.0          -0.039      8760     0.518             -0.020  -0.069      4567.070          4362.678            -4707.867
+         Part 1         heuristic_mean28_sign   1.0     -9105.190      8760.0          -1.039      8760     0.464             -0.537  -1.814      9175.690          4242.678           -13347.868
+         Part 1        heuristic_netload_ramp   0.0      1476.620      8760.0           0.169      8760     0.550              0.087   0.339      4597.397          6607.423            -5130.802
+         Part 1        heuristic_netload_ramp   1.0     -7283.380      8760.0          -0.831      8760     0.494             -0.429  -1.672      9734.933          6487.423           -13770.802
+         Part 1           regress_sign_linear   0.0      7559.915      8760.0           0.863      8760     0.615              0.446   1.130      4009.492          5585.233             1974.682
+         Part 1           regress_sign_linear   1.0     -1200.085      8760.0          -0.137      8760     0.559             -0.071  -0.179      4921.492          5465.233            -6665.318
+         Part 1             regress_sign_tree   0.0      9716.150      8760.0           1.109      8760     0.628              0.573   1.435      4589.152          5561.568             4154.583
+         Part 1             regress_sign_tree   1.0       956.150      8760.0           0.109      8760     0.573              0.056   0.141      5528.165          5441.568            -4485.418
+         Part 1          three_class_logistic   0.0      8721.505      8760.0           0.996      8760     0.618              0.514   1.303      4177.627          5581.568             3139.938
+         Part 1          three_class_logistic   1.0       -38.495      8760.0          -0.004      8760     0.562             -0.002  -0.006      5128.340          5461.568            -5500.062
+         Part 1      threshold_label_logistic   0.0      8282.635      8760.0           0.946      8760     0.620              0.488   1.231      4324.017          5587.208             2695.428
+         Part 1      threshold_label_logistic   1.0      -477.365      8760.0          -0.054      8760     0.563             -0.028  -0.071      5263.030          5467.208            -5944.572
+Part 2 tau rule                 viewB_tau2_c0   0.0      8328.523      6253.0           1.332      6253     0.647              0.491   1.272      4275.120          5468.372             2860.150
+  Part 2 sizing                size_B_unit_c0   0.0      9716.150      8760.0           1.109      8760     0.628              0.573   1.435      4589.152          5561.568             4154.583
+  Part 2 sizing                size_B_edge_c0   0.0     25505.653      8760.0           2.912      8760     0.628              1.504   1.413      9510.463         20825.976             4679.676
+  Part 2 sizing     size_B_edge_over_var28_c0   0.0      9788.902      8760.0           1.117      8760     0.628              0.577   1.618      3659.908          7549.568             2239.333
+  Part 2 sizing      size_B_edge_over_varQ_c0   0.0      7077.417      8760.0           0.808      8760     0.628              0.417   1.763      2422.945          2469.886             4607.532
+  Part 2 sizing                size_A_unit_c0   0.0      8870.415      8760.0           1.013      8760     0.624              0.523   1.314      4474.772          5581.568             3288.848
+  Part 2 sizing                size_A_edge_c0   0.0     46677.220      8760.0           5.328      8760     0.624              2.752   2.030     12509.922         31411.828            15265.392
+  Part 2 sizing     size_A_edge_over_var28_c0   0.0     14412.824      8760.0           1.645      8760     0.624              0.850   1.998      2804.448          9485.891             4926.933
+Part 2 tau rule                 viewB_tau5_c1   1.0      3507.745      2334.0           1.503      2334     0.652              0.207   0.645      3167.212          5219.325            -1711.580
+  Part 2 sizing                size_B_unit_c1   1.0      1812.782      7464.0           0.243      7464     0.595              0.107   0.269      5423.012          5449.710            -3636.928
+  Part 2 sizing                size_B_edge_c1   1.0     17444.848      7464.0           2.337      7464     0.595              1.028   0.984     10258.060         20671.474            -3226.626
+  Part 2 sizing     size_B_edge_over_var28_c1   1.0      2050.442      7464.0           0.275      7464     0.595              0.121   0.289      5034.256          8657.784            -6607.342
+  Part 2 sizing      size_B_edge_over_varQ_c1   1.0     -1327.621      7464.0          -0.178      7464     0.595             -0.078  -0.322      3741.042          2344.092            -3671.713
+  Part 2 sizing                size_A_unit_c1   1.0      1161.661      7464.0           0.156      6979     0.595              0.068   0.164      5487.422          5826.757            -4665.096
+  Part 2 sizing                size_A_edge_c1   1.0     42076.474      7464.0           5.637      6979     0.595              2.481   1.760     13384.715         33143.884             8932.590
+  Part 2 sizing     size_A_edge_over_var28_c1   1.0     12080.404      7464.0           1.618      6979     0.595              0.712   1.189      6215.994         14004.303            -1923.899
+  Part 2 filter    classifier_filtered_q90_c0   0.0      3480.225      1092.0           3.187      1092     0.667              0.205   0.697      3482.410          5124.450            -1644.225
+  Part 2 filter    classifier_filtered_q90_c1   1.0      2388.225      1092.0           2.187      1092     0.654              0.141   0.479      3750.212          5074.450            -2686.225
+         Part 3              part3_A_equal_c0   0.0      9685.356      8757.5           1.106      8760     0.628              0.571   1.430      4589.152          5561.568             4123.788
+         Part 3               part3_A_edge_c0   0.0     18547.331      8331.6           2.226      8198     0.634              1.093   1.430      7575.706         12703.389             5843.943
+         Part 3          part3_A_inv_sigma_c0   0.0      5421.294      8321.1           0.652      8582     0.625              0.320   1.278      2599.246          3228.785             2192.509
+         Part 3      part3_A_edge_over_var_c0   0.0      6803.018      8330.1           0.817      8178     0.627              0.401   1.295      3410.239          3856.556             2946.462
+         Part 3           part3_B_knapsack_c0   0.0     19683.730      8760.0           2.247      2190     0.687              1.160   0.967     12232.490         18370.580             1313.150
+         Part 3     part3_Q2_collateral_dp_c0   0.0     11328.385      7360.0           1.539      2230     0.642              0.668   1.739      4848.778          5215.410             6112.975
+         Part 3 part3_Q2_collateral_greedy_c0   0.0     12010.977      7424.0           1.618      2063     0.641              0.708   1.873      4507.505          5175.505             6835.472
+         Part 3     part3_Q3_mean_variance_c0   0.0      3396.254      2984.2           1.138      5155     0.638              0.200   1.010      2424.303          2632.884              763.369
+         Part 3              part3_Q3_cvar_c0   0.0     10383.800      8718.3           1.191      2613     0.669              0.612   0.620     14535.664          9197.262             1186.538
+         Part 3              part3_A_equal_c1   1.0       927.856      8757.5           0.106      8760     0.573              0.055   0.137      5528.165          5441.568            -4513.712
+         Part 3               part3_A_edge_c1   1.0     11213.303      8405.6           1.334      7111     0.599              0.661   0.795      8952.703         13500.977            -2287.674
+         Part 3          part3_A_inv_sigma_c1   1.0     -2899.806      8321.1          -0.348      8582     0.570             -0.171  -0.683      4112.716          3114.385            -6014.191
+         Part 3      part3_A_edge_over_var_c1   1.0       142.226      8404.0           0.017      7008     0.591              0.008   0.023      4815.155          4352.931            -4210.705
+         Part 3           part3_B_knapsack_c1   1.0     10923.730      8760.0           1.247      2190     0.668              0.644   0.536     13240.490         18250.580            -7326.850
+         Part 3     part3_Q2_collateral_dp_c1   1.0      2665.022      6625.0           0.402      2021     0.610              0.157   0.382      5165.942          5069.045            -2404.023
+         Part 3 part3_Q2_collateral_greedy_c1   1.0      2496.825      6735.0           0.371      1948     0.602              0.147   0.361      5428.552          5099.780            -2602.955
+         Part 3     part3_Q3_mean_variance_c1   1.0       406.129      2084.4           0.195      3803     0.608              0.024   0.126      2608.083          2425.214            -2019.086
+         Part 3              part3_Q3_cvar_c1   1.0      1479.145      8674.5           0.171      2615     0.639              0.087   0.089     15937.347          8999.513            -7520.368
+Step-Number 2: Headline strategy per part, chosen on 2024 by Sharpe at c = $1: {'Baseline': 'always_inc', 'Part 1': 'three_class_logistic', 'Part 2': 'classifier_filtered_q90_c1', 'Part 3': 'part3_Q3_mean_variance_c1'}
+         part                   strategy  cost  total_profit  mwh_traded  profit_per_mwh  n_trades  win_rate  annualized_return  sharpe  max_drawdown  top5_days_profit  profit_ex_top5_days
+       Part 1                 always_inc   1.0      -646.535      8760.0          -0.074      8760     0.568             -0.038  -0.095      5997.880          5467.208            -6113.742
+       Part 1       three_class_logistic   1.0       -38.495      8760.0          -0.004      8760     0.562             -0.002  -0.006      5128.340          5461.568            -5500.062
+Part 2 filter classifier_filtered_q90_c1   1.0      2388.225      1092.0           2.187      1092     0.654              0.141   0.479      3750.212          5074.450            -2686.225
+       Part 3  part3_Q3_mean_variance_c1   1.0       406.129      2084.4           0.195      3803     0.608              0.024   0.126      2608.083          2425.214            -2019.086
+Step-Number 3: Does profit come from a few extreme days? (2025, c = $1)
+    part                   strategy  total_profit  ex_best_1_day  ex_best_5_days  ex_best_10_days  ex_best_20_days  share_of_days_positive  best_day  worst_day
+Baseline                 always_inc       -646.53       -2419.18        -6113.74         -8915.48        -12801.79                    0.60   1772.64   -2877.11
+  Part 1       three_class_logistic        -38.49       -1811.14        -5500.06         -8398.01        -12284.31                    0.60   1772.64   -2877.11
+  Part 2 classifier_filtered_q90_c1       2388.22         732.38        -2686.23         -4559.80         -7080.66                    0.58   1655.85   -2525.65
+  Part 3  part3_Q3_mean_variance_c1        406.13        -310.21        -2019.09         -3368.34         -5269.33                    0.67    716.34   -1835.43
+Step-Number 4: Test-set trades saved: 337,531 rows, 50 strategies -> outputs/trades/
+
+  [PASS] Final evaluation finished: outputs/tables/final_*.csv, outputs/trades/*.csv, results_summary.json
+
+Final Conclusion: stage 'all' finished in 178.7 s.
