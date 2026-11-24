@@ -128,4 +128,6 @@ in the report's Appendix B.
 * **Volume increment**: Part 3 volumes are floored to 0.1 MWh (assumed minimum bid size).
 * **Collateral example (Part 3, Q2)**: collateral per MWh = 2 × the 28-day same-hour spread std; daily budget = 24 × its 2023 median ($504).
 
+> **Academic integrity:** This repository is my original work for ISyE/MATH 6767 at Georgia Tech, shared for reference only; copying or submitting any part of it as your own work is plagiarism, for which I bear no responsibility.
+
 ### Thank You!
