@@ -131,3 +131,4 @@ in the report's Appendix B.
 > **Academic integrity:** This repository is my original work for ISyE/MATH 6767 at Georgia Tech, shared for reference only; copying or submitting any part of it as your own work is plagiarism, for which I bear no responsibility.
 
 ### Thank You!
+![Profile Views](https://komarev.com/ghpvc/?username=anay-a-joshi&color=green)  
